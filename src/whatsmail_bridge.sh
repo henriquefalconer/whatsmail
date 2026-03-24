@@ -88,7 +88,16 @@ get_avatar() {
         file=$(find "$WA_BASE/$pic_path"* -maxdepth 0 2>/dev/null | head -1)
     fi
     if [ -z "$file" ] && [ -n "$chatjid" ]; then
-        file=$(find "$WA_BASE/Media/Profile/$chatjid-"* -maxdepth 0 2>/dev/null | head -1)
+        # Match only personal profile pics (<phone>-<timestamp>.ext),
+        # not group pics (<phone>-<groupid>-<timestamp>.ext)
+        while IFS= read -r candidate; do
+            local basename="${candidate##*/}"
+            local after="${basename#"$chatjid"-}"
+            if [[ "$after" != *-* ]]; then
+                file="$candidate"
+                break
+            fi
+        done < <(find "$WA_BASE/Media/Profile/$chatjid-"* -maxdepth 0 2>/dev/null)
     fi
     if [ -n "$file" ]; then
         local b64
