@@ -5,7 +5,7 @@
 ### 1. Send Logs
 
 ```bash
-/usr/bin/logger -t local.whatsmail "Message here"
+/usr/bin/logger -t WhatsMail "[local.whatsmail] Message here"
 ```
 
 ### 2. View Logs

@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-log() { /usr/bin/logger -t local.whatsmail "$1"; }
+log() { /usr/bin/logger -t WhatsMail "[local.whatsmail] $1"; }
 
 # Settings
 MSMTP_CONFIG="$SCRIPT_DIR/.msmtp.rc"
