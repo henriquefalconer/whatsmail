@@ -8,7 +8,7 @@
 Forwards unread WhatsApp messages to your inbox as a daily email digest. Reads from the WhatsApp macOS local SQLite database, groups messages by chat, and sends via `msmtp`.
 
 <p align="center">
- <img align="center" src="https://github.com/user-attachments/assets/3a05f996-f47c-4ee6-803e-a032e0e45497" width="620">
+ <img align="center" src="https://github.com/user-attachments/assets/014977ba-68a8-4864-b47e-349878d56689" width="620">
 </p>
 
 ## Requirements
