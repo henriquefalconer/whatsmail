@@ -22,7 +22,7 @@ build: clean
 	@echo "Signing..."
 	@codesign --force --identifier $(IDENTIFIER) -s - $(DIST_DIR)/$(BINARY_NAME) 2>/dev/null
 	@rm -f $(DIST_DIR)/temp_build.sh $(DIST_DIR)/temp_build.sh.x.c
-	@echo "Binary created in $(DIST_DIR)/$(BINARY_NAME)!"
+	@echo "Baked binary created in $(DIST_DIR)/$(BINARY_NAME)!"
 
 clean:
 	@rm -rf $(DIST_DIR)
