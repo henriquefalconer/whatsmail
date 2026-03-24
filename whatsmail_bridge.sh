@@ -7,19 +7,25 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+log() { /usr/bin/logger -t WhatsMail "$1"; }
+
 # Settings
 MSMTP_CONFIG="$SCRIPT_DIR/.msmtp.rc"
 TO="${WHATSMAIL_TO:-}"
 
 if [ -z "$TO" ]; then
+    log "ERROR: WHATSMAIL_TO not set"
     echo "Error: set WHATSMAIL_TO to the recipient email address." >&2
     exit 1
 fi
+
+log "Starting bridge"
 
 # MsgID|Time|Chat|ChatJID|Sender|IsGroup|Content|ProfilePicPath|Status
 DATA=$(bash "$SCRIPT_DIR/unread_messages.sh")
 
 if [ -z "$DATA" ]; then
+    log "No unread messages found"
     echo "No unread messages found."
     exit 0
 fi
@@ -203,4 +209,5 @@ else
 fi
 
 printf "%s\nContent-Type: text/html; charset=UTF-8\nMIME-Version: 1.0\n\n%s" "$SUBJECT" "$BODY" | msmtp --file="$MSMTP_CONFIG" "$TO"
+log "Sent $MSG_COUNT message(s) to $TO"
 echo "Alert sent to $TO."

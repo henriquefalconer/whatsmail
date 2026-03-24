@@ -66,6 +66,14 @@ WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
 launchctl load ~/Library/LaunchAgents/local.whatsmail.plist
 ```
 
+## Logging
+
+View logs with Apple Unified Logging:
+
+```bash
+/usr/bin/log show --predicate 'eventMessage contains "whatsmail"' --info --debug
+```
+
 ## Specifications
 
 See [`specs/README.md`](specs/README.md) for design documentation.

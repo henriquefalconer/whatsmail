@@ -19,3 +19,9 @@ Design documentation for WhatsMail, a tool that forwards unread WhatsApp message
 | Spec | Purpose |
 |------|---------|
 | [whatsmail-bridge.md](./whatsmail-bridge.md) | Bash script that bundles unread WhatsApp messages into a daily email digest |
+
+## Logging
+
+| Spec | Purpose |
+|------|---------|
+| [whatsmail-logging.md](./whatsmail-logging.md) | Apple Unified Logging via `logger` for diagnostics |
