@@ -84,6 +84,6 @@ fi
 bash whatsmail_bridge.sh
 ```
 
-### Daily Automation
+### Scheduled Automation
 
 Use a macOS Launch Agent to run via `launchctl`.

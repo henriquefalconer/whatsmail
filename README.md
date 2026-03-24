@@ -28,7 +28,7 @@ chmod 600 .msmtp.rc
 WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
 ```
 
-### Daily Automation (9 AM)
+### Scheduled Automation (9 AM)
 
 1. Create `~/Library/LaunchAgents/local.whatsmail.plist`:
 
