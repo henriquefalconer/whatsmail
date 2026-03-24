@@ -2,6 +2,11 @@
 
 DB_PATH=/Users/henriquefalconer/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared/ChatStorage.sqlite
 
+if [ ! -f "$DB_PATH" ]; then
+    /usr/bin/logger -t WhatsMail "[local.whatsmail] ERROR: WhatsApp database not found: $DB_PATH"
+    exit 1
+fi
+
 QUERY_RESULT=$(/usr/bin/sqlite3 "$DB_PATH" "
 SELECT
     sub.Z_PK AS MsgID,

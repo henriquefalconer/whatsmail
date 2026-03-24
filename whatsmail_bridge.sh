@@ -23,14 +23,20 @@ trap cleanup EXIT
 MSMTP_CONFIG="${WHATSMAIL_MSMTP_CONFIG:-}"
 if [ -z "$MSMTP_CONFIG" ]; then
     log "ERROR: WHATSMAIL_MSMTP_CONFIG not set"
-    echo "Error: set WHATSMAIL_MSMTP_CONFIG to the msmtp config file path." >&2
     exit 1
 fi
-TO="${WHATSMAIL_TO:-}"
+if [ ! -f "$MSMTP_CONFIG" ]; then
+    log "ERROR: WHATSMAIL_MSMTP_CONFIG file not found: $MSMTP_CONFIG"
+    exit 1
+fi
 
+TO="${WHATSMAIL_TO:-}"
 if [ -z "$TO" ]; then
     log "ERROR: WHATSMAIL_TO not set"
-    echo "Error: set WHATSMAIL_TO to the recipient email address." >&2
+    exit 1
+fi
+if [[ ! "$TO" =~ ^[^@]+@[^@]+\.[^@]+$ ]]; then
+    log "ERROR: WHATSMAIL_TO is not a valid email address: $TO"
     exit 1
 fi
 
@@ -44,7 +50,7 @@ else
     DATA=$(bash "$SCRIPT_DIR/unread_messages.sh")
 fi
 if [ $? -ne 0 ]; then
-    log "ERROR: sqlite3 call failed. Is WhatsApp open?"
+    log "ERROR: sqlite3 query failed"
     exit 1
 fi
 
