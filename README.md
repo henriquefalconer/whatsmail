@@ -15,6 +15,7 @@ Forwards unread WhatsApp messages to your inbox as a daily email digest. Reads f
 
 - macOS with WhatsApp Desktop installed
 - Xcode Command Line Tools (for `codesign`): `xcode-select --install`
+- `make` (included with Xcode Command Line Tools)
 - `shc` (shell script compiler): `brew install shc`
 - `msmtp` (SMTP client): `brew install msmtp`
 
@@ -33,14 +34,13 @@ chmod 600 .msmtp.rc
 Compile the script into a binary and sign it so macOS can remember its permissions:
 
 ```bash
-shc -f whatsmail_bridge.sh -o whatsmail_bin
-codesign --force --identifier "local.whatsmail" -s - whatsmail_bin
+make
 ```
 
 ### 3. Grant Permissions
 
 1. Open **System Settings > Privacy & Security > Full Disk Access**
-2. Click **[+]** and select the `whatsmail_bin` file
+2. Click **[+]** and select the `dist/whatsmail_bin` file
 
 ### 4. Configure the LaunchAgent
 
@@ -55,7 +55,7 @@ Create `~/Library/LaunchAgents/local.whatsmail.plist`:
     <string>local.whatsmail</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/whatsmail_bin</string>
+        <string>/path/to/dist/whatsmail_bin</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>

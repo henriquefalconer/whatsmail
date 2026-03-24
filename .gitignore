@@ -1,1 +1,6 @@
+# Build artifacts
+dist/
+*.x.c
+
+# Environment / Secrets
 .msmtp.rc

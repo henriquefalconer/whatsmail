@@ -1,116 +1,66 @@
 # WhatsMail Bridge
 
-## Overview
+Bundles unread WhatsApp messages into one HTML email alert, grouped by chat.
 
-A script to bundle all unread WhatsApp messages into one email alert.
-
-## Email Format
-
-The email is sent as **HTML** with a chat-bubble interface. Messages are grouped by chat, each section showing a profile avatar, chat name, message bubbles, and an "Open in WhatsApp" card.
-
-### Visual Layout
-
-Each chat section contains:
-
-1. **Chat name** — displayed above the messages, aligned with bubble text
-2. **Profile avatar** — 32px circle, top-aligned with the first message bubble. Uses the contact's actual profile picture (base64-embedded from `ZWAPROFILEPICTUREITEM`) when available; falls back to a grey circle when no picture exists
-3. **Vertical line** — 2px line centered on the avatar, starts below the avatar (with a 5px gap), continues through all messages and the card
-4. **Message bubbles** — grey rounded rectangles with timestamp and content
-5. **"Open in WhatsApp" card** — bordered rectangle at the bottom of each chat section
-
-### Message Bubbles
-
-- **1:1 chats**: bubbles show `[YYYY-MM-DD HH:MM]` + content (no sender name)
-- **Group chats**: bubbles show `[YYYY-MM-DD HH:MM] Sender` + content
-- **Timestamp grouping**: if consecutive messages in the same chat are less than 10 minutes apart, only the first message shows the timestamp; subsequent messages show only the content
-
-### "Open in WhatsApp" Card
-
-A bordered rounded rectangle containing:
-
-- **Bold chat name**
-- **1:1 chats with link**: pill-shaped outlined button linking to `https://wa.me/<chatjid>`
-- **Group chats or no link**: plain text "Manually open in WhatsApp to access"
-
-### Link Rules
-
-- **1:1 chats** (`@s.whatsapp.net`): WhatsApp link is built from the chat JID: strip the suffix and prepend `https://wa.me/`
-- **1:1 chats** (`@lid`): these use opaque internal IDs, not phone numbers. If `ZPARTNERNAME` starts with `+`, strip non-digit characters and use it as the `wa.me` link. Otherwise, no link is available
-- **Group chats or no link available**: no clickable link
-
-### Subject Line
+## Subject Line
 
 `(DD/MM/YYYY) N unread messages` (singular `message` when N is 1)
 
-### Other Rules
+## Email Layout
 
-- Chats are ordered by their first unread message timestamp
-- Output placeholders: the query outputs `<NL>` for newlines and `<PIP>` for pipe characters; the bridge converts `<PIP>` back to `|` and `<NL>` to `<br>`
-- All text is black (`#000`), uniform 13px font size
-- Border color `#c8c8c8` is shared across the vertical line, bubble borders, card border, and pill button border
-- Profile pictures are looked up from `ZWAPROFILEPICTUREITEM` using the chat's raw `ZCONTACTJID`, resolved to a file in `Media/Profile/` (globbed for extension), and embedded as base64 data URIs. For `@s.whatsapp.net` chats where the DB returns no path (profile pics are stored under `@lid` JIDs), falls back to searching `Media/Profile/<phone_number>-*` on disk
+Each chat section contains, in order:
 
-## Script
+1. **Chat name** — above messages, aligned with bubble text
+2. **Profile avatar** — 32px circle, top-aligned with first bubble; actual profile picture (base64-embedded) or grey circle fallback
+3. **Vertical line** — 2px, centered on avatar, 5px gap below it, continues through all messages and the card
+4. **Message bubbles** — grey rounded rectangles
+   - 1:1 chats: `[YYYY-MM-DD HH:MM]` + content
+   - Group chats: `[YYYY-MM-DD HH:MM] Sender` + content
+   - Consecutive messages < 10 min apart: only the first shows the timestamp
+5. **"Open in WhatsApp" card** — bordered rounded rectangle with bold chat name and link (or fallback text)
+
+## Link Rules
+
+| Chat type | Link |
+|-----------|------|
+| `@s.whatsapp.net` | `https://wa.me/<phone>` (strip suffix from JID) |
+| `@lid` with `ZPARTNERNAME` starting `+` | `https://wa.me/<digits>` (strip non-digits) |
+| `@lid` without `+` / group chats | No link — "Manually open in WhatsApp to access" |
+
+## Profile Pictures
+
+Looked up from `ZWAPROFILEPICTUREITEM` using raw `ZCONTACTJID`, resolved to `Media/Profile/` (globbed for extension), embedded as base64 data URIs. For `@s.whatsapp.net` chats with no DB path, falls back to `Media/Profile/<phone_number>-*` on disk.
+
+## Styling
+
+- All text black (`#000`), 13px font
+- Border color `#c8c8c8` shared across vertical line, bubbles, card, and pill button
+- Chats ordered by first unread message timestamp
+- Placeholders from query: `<NL>` → `<br>`, `<PIP>` → `|`
+
+## Script Pseudocode
 
 ```bash
 #!/bin/bash
-set -u
-set -o pipefail
+set -u; set -o pipefail
 
 log() { /usr/bin/logger -t WhatsMail "[local.whatsmail] $1"; }
+trap '[ $? -ne 0 ] && log "ERROR: exited with code $?"' EXIT
 
-cleanup() {
-    EXIT_CODE=$?
-    if [ $EXIT_CODE -ne 0 ]; then
-        log "ERROR: Script exited unexpectedly with code $EXIT_CODE"
-    fi
-}
-trap cleanup EXIT
+TO="$WHATSMAIL_TO"
 
-# Settings
-TO="you@example.com"
-
-# Profile picture lookup: query ZWAPROFILEPICTUREITEM for ZPATH,
-# find file on disk (glob for extension), base64-encode as data URI.
-# Falls back to grey circle when no picture exists.
-get_avatar() { ... }
-
-# Process
-log "Fetching unread messages..."
-DATA=$(bash unread_messages.sh)
-if [ $? -ne 0 ]; then
-    log "ERROR: unread_messages.sh failed. Is WhatsApp open? Is Full Disk Access granted?"
-    exit 1
-fi
+DATA=$(bash unread_messages.sh) || { log "ERROR: unread_messages.sh failed"; exit 1; }
 
 if [ -n "$DATA" ]; then
     BODY=$(format_html "$DATA")   # group by chat, build HTML with bubbles + profile pics
     MSG_COUNT=$(echo "$DATA" | wc -l)
-    log "Attempting to send email to $TO..."
-    if ! printf "Subject: (%s) %s unread messages\nContent-Type: text/html; charset=UTF-8\nMIME-Version: 1.0\n\n%s" "$(date +%d/%m/%Y)" "$MSG_COUNT" "$BODY" | msmtp "$TO"; then
-        log "ERROR: msmtp failed. Check internet connection or .msmtp.rc"
-        exit 1
-    fi
+    printf "Subject: ...\nContent-Type: text/html; charset=UTF-8\n\n%s" "$BODY" \
+        | msmtp "$TO" || { log "ERROR: msmtp failed"; exit 1; }
 fi
 ```
 
 ## Usage
 
-### Manual
-
-```bash
-WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
-```
-
-### Build & Sign
-
-Compile with `shc` and sign with `codesign` so macOS can grant Full Disk Access to the binary:
-
-```bash
-shc -f whatsmail_bridge.sh -o whatsmail_bin
-codesign --force --identifier "local.whatsmail" -s - whatsmail_bin
-```
-
-### Scheduled Automation
-
-Use a macOS Launch Agent (`local.whatsmail.plist`) to run the compiled binary via `launchctl`. The plist provides `WHATSMAIL_TO` and `PATH` as environment variables, schedules daily execution at 9 AM, and runs at load.
+- **Manual**: `WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh`
+- **Build**: `make` (compiles with `shc`, signs with `codesign`)
+- **Scheduled**: macOS Launch Agent (`local.whatsmail.plist`) runs the binary daily at 9 AM via `launchctl`
