@@ -29,7 +29,13 @@ Each chat section contains, in order:
 
 ## Profile Pictures
 
-Looked up from `ZWAPROFILEPICTUREITEM` using raw `ZCONTACTJID`, resolved to `Media/Profile/` (globbed for extension), embedded as base64 data URIs. For `@s.whatsapp.net` chats with no DB path, falls back to `Media/Profile/<phone_number>-*` on disk.
+Resolved via a layered lookup chain, embedded as base64 data URIs:
+
+1. **L1** — `ZWAPROFILEPICTUREITEM` DB path → `Media/Profile/` file (globbed for extension). Best for `@lid` chats.
+2. **L2b** — `pp` blob by LID: resolve LID via `ContactsV2.sqlite` (`ZWAADDRESSBOOKCONTACT.ZLID` matched on `ZWHATSAPPID`), then fetch JPEG from `LocalKeyValue.sqlite` (`ZNAMESPACE = 'pp'`, `ZKEY` = LID). Best coverage for `@s.whatsapp.net` chats.
+3. **L2a** — `pp` blob by raw JID: fetch JPEG from `LocalKeyValue.sqlite` (`ZNAMESPACE = 'pp'`, `ZKEY` = raw `ZCONTACTJID`).
+4. **L3** — Disk glob `Media/Profile/<phone>-*`, filtering out group files (suffix with extra dashes).
+5. **L4** — Grey circle fallback.
 
 ## Styling
 

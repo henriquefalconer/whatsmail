@@ -36,6 +36,7 @@ SELECT
          ORDER BY pp.ZREQUESTDATE DESC LIMIT 1),
         ''
     ) AS ProfilePicPath,
+    sub.RawChatJID,
     sub.ZMESSAGESTATUS AS Status
 FROM (
     SELECT

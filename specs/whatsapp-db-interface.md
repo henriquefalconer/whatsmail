@@ -92,9 +92,16 @@ Stores profile picture metadata and file paths.
 | Location | Format | Naming | Coverage |
 |----------|--------|--------|----------|
 | `~/Library/Group Containers/group.net.whatsapp.WhatsApp.shared/Media/Profile/` | `.thumb`, `.jpg` | `<phone_or_lid>-<id>` | Subset of contacts; referenced by `ZPATH` in DB |
+| `LocalKeyValue.sqlite` → `ZWAKEYVALUEELEMENT` (`ZNAMESPACE = 'pp'`) | JPEG blob | `ZKEY` = JID or LID | ~468 entries; JPEG stored directly in `ZVALUE` |
 | `~/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches/spotlight-profile-v2/` | `.png` | Opaque numeric hash (mapping to JID unknown) | Most contacts; used by Spotlight integration |
 
+The `pp` namespace in `LocalKeyValue.sqlite` stores actual JPEG profile pictures keyed by JID (`@s.whatsapp.net` or `@lid`). Both JID forms may exist for the same contact with different image versions. LID for a given JID can be resolved via `ContactsV2.sqlite` → `ZWAADDRESSBOOKCONTACT.ZLID` (matched on `ZWHATSAPPID`).
+
 The `spotlight-profile-v2` cache contains profile pictures for contacts that may not have entries in `Media/Profile/`, but the filename-to-JID mapping is not stored in the database and uses an unknown hashing scheme (not standard MD5/SHA1/SHA256 of the JID). Currently unusable for programmatic lookup.
+
+**Profile picture group file collision:**
+
+Files in `Media/Profile/` are named `<creator_phone>-<group_id>-<timestamp>.ext` for groups and `<phone>-<timestamp>.ext` for personal chats. A glob on `<phone>-*` can match group files when the phone number is the group creator. Disk fallback must filter out files where the suffix after `<phone>-` contains additional dashes.
 
 ---
 

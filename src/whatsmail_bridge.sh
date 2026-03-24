@@ -72,38 +72,92 @@ html_escape() {
 
 # WhatsApp container base path
 WA_BASE=~/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared
+KV_DB="$WA_BASE/LocalKeyValue.sqlite"
+CV_DB="$WA_BASE/ContactsV2.sqlite"
+SPOTLIGHT_CACHE=~/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches/spotlight-profile-v2
 
 # Border color used for vertical bar, rectangles, and pill buttons
 BC='#c8c8c8'
 
-# Build an avatar HTML element from a profile picture path (from SQL output).
-# Falls back to searching by phone number in Media/Profile/ if no DB path.
-# Returns an <img> tag with embedded base64, or a grey circle <div> as fallback.
-# Args: $1=ProfilePicPath (from SQL), $2=ChatJID (phone number, may be empty)
+# Emit an <img> tag from a file path. Returns 0 on success, 1 on failure.
+_avatar_from_file() {
+    local b64
+    b64=$(base64 -i "$1" 2>/dev/null) || return 1
+    echo '<img src="data:image/jpeg;base64,'"$b64"'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />'
+}
+
+# Emit an <img> tag from a pp blob in LocalKeyValue.sqlite. Returns 0 on success, 1 on failure.
+_avatar_from_pp() {
+    local jid="$1"
+    local tmp="/tmp/whatsmail_pp_$$.jpg"
+    local written
+    written=$(/usr/bin/sqlite3 "$KV_DB" "SELECT writefile('$tmp', ZVALUE) FROM ZWAKEYVALUEELEMENT WHERE ZKEY = '$jid' AND ZNAMESPACE = 'pp' LIMIT 1;" 2>/dev/null)
+    if [ -n "$written" ] && [ "$written" -gt 0 ] 2>/dev/null && [ -f "$tmp" ]; then
+        _avatar_from_file "$tmp"
+        local rc=$?
+        rm -f "$tmp"
+        return $rc
+    fi
+    rm -f "$tmp"
+    return 1
+}
+
+# Build an avatar HTML element using the lookup chain:
+# L1: ZWAPROFILEPICTUREITEM Media/Profile/ file (from SQL pic_path)
+# L2b: pp blob by LID (looked up from ContactsV2)
+# L2a: pp blob by raw chat JID
+# L3: disk glob Media/Profile/<phone>-<timestamp> (personal only)
+# L4: default WhatsApp silhouette (group or personal)
+# Args: $1=ProfilePicPath (from SQL), $2=ChatJID (phone number, may be empty), $3=RawChatJID, $4=IsGroup
 get_avatar() {
     local pic_path="$1"
     local chatjid="$2"
-    local file=""
+    local raw_jid="$3"
+    local is_group="$4"
+
+    # L1: DB profile picture file
     if [ -n "$pic_path" ]; then
+        local file
         file=$(find "$WA_BASE/$pic_path"* -maxdepth 0 2>/dev/null | head -1)
+        if [ -n "$file" ]; then
+            _avatar_from_file "$file" && return
+        fi
     fi
-    if [ -z "$file" ] && [ -n "$chatjid" ]; then
-        # Match only personal profile pics (<phone>-<timestamp>.ext),
-        # not group pics (<phone>-<groupid>-<timestamp>.ext)
+
+    # L2b: pp blob by LID (best coverage for @s.whatsapp.net chats)
+    if [ -n "$raw_jid" ]; then
+        local lid
+        lid=$(/usr/bin/sqlite3 "$CV_DB" "SELECT ZLID FROM ZWAADDRESSBOOKCONTACT WHERE ZWHATSAPPID = '$raw_jid' LIMIT 1;" 2>/dev/null)
+        if [ -n "$lid" ]; then
+            _avatar_from_pp "$lid" && return
+        fi
+    fi
+
+    # L2a: pp blob by raw JID
+    if [ -n "$raw_jid" ]; then
+        _avatar_from_pp "$raw_jid" && return
+    fi
+
+    # L3: disk glob for personal profile pics
+    if [ -n "$chatjid" ]; then
         while IFS= read -r candidate; do
             local basename="${candidate##*/}"
             local after="${basename#"$chatjid"-}"
             if [[ "$after" != *-* ]]; then
-                file="$candidate"
+                _avatar_from_file "$candidate" && return
                 break
             fi
         done < <(find "$WA_BASE/Media/Profile/$chatjid-"* -maxdepth 0 2>/dev/null)
     fi
-    if [ -n "$file" ]; then
-        local b64
-        b64=$(base64 -i "$file")
-        echo '<img src="data:image/jpeg;base64,'"$b64"'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />'
-        return
+
+    # L4: default WhatsApp silhouette
+    if [ "$is_group" = "1" ]; then
+        local default_img="$SPOTLIGHT_CACHE/GroupChatRound.png"
+    else
+        local default_img="$SPOTLIGHT_CACHE/PersonalChatRound.png"
+    fi
+    if [ -f "$default_img" ]; then
+        _avatar_from_file "$default_img" && return
     fi
     echo '<div style="width:32px;height:32px;border-radius:50%;background-color:#a0a0a0;"></div>'
 }
@@ -154,7 +208,7 @@ CURRENT_ISGROUP=""
 CURRENT_CHATJID=""
 PREV_EPOCH=0
 
-while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path _status; do
+while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path raw_jid _status; do
     time="${time%:*}"
     chat="${chat//<PIP>/|}"
     chat="${chat//<NL>/ }"
@@ -211,7 +265,7 @@ while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path 
 
     if [ "$NEW_CHAT" = "1" ]; then
         # First message row: left column (avatar + gap + line) | right column (name + bubble)
-        local_avatar=$(get_avatar "$pic_path" "$chatjid")
+        local_avatar=$(get_avatar "$pic_path" "$chatjid" "$raw_jid" "$_isgroup")
         BODY+='<tr><td>'
         BODY+='<table width="100%" cellpadding="0" cellspacing="0"><tr>'
         # Left column: avatar on top, 5px gap, then vertical line fills rest
