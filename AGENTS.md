@@ -10,4 +10,8 @@ Filter by eventMessage, not subsystem.
 
 # Build & sign
 
-`shc -f whatsmail_bridge.sh -o whatsmail_bin && codesign --force --identifier "local.whatsmail" -s - whatsmail_bin`
+`shc -f whatsmail_bridge.sh -o whatsmail_bin && codesign --force --identifier "local.whatsmail" -s - whatsmail_bin 2>/dev/null`
+
+# Verify binary
+
+`codesign -dv whatsmail_bin`
