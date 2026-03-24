@@ -1,6 +1,8 @@
 #!/bin/bash
 
-sqlite3 ~/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared/ChatStorage.sqlite "
+DB_PATH=/Users/henriquefalconer/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared/ChatStorage.sqlite
+
+QUERY_RESULT=$(/usr/bin/sqlite3 "$DB_PATH" "
 SELECT
     sub.Z_PK AS MsgID,
     sub.Time,
@@ -64,4 +66,12 @@ LEFT JOIN ZWAPROFILEPICTUREITEM pp ON sub.RawChatJID = pp.ZJID AND pp.ZPATH LIKE
 WHERE sub.rn <= sub.ZUNREADCOUNT
 GROUP BY sub.ZSTANZAID
 ORDER BY MIN(sub.ZMESSAGEDATE) OVER (PARTITION BY sub.ZCHATSESSION), sub.ZMESSAGEDATE ASC;
-"
+" 2>&1)
+QUERY_EXIT_CODE=$?
+
+if [ $QUERY_EXIT_CODE -ne 0 ]; then
+    /usr/bin/logger -t WhatsMail "[local.whatsmail] SQLITE ERROR: $QUERY_RESULT"
+    exit 1
+fi
+
+echo "$QUERY_RESULT"

@@ -13,10 +13,10 @@ all: build
 build: clean
 	@mkdir -p $(DIST_DIR)
 	@echo "Fusing scripts..."
-	@cp $(MAIN_SOURCE) $(DIST_DIR)/temp_build.sh
-	@echo "\nfetch_unread_logic() {" >> $(DIST_DIR)/temp_build.sh
-	@cat $(WORKER_SOURCE) >> $(DIST_DIR)/temp_build.sh
-	@echo "\n}" >> $(DIST_DIR)/temp_build.sh
+	@printf '#!/bin/bash\nfetch_unread_logic() {\n' > $(DIST_DIR)/temp_build.sh
+	@tail -n +2 $(WORKER_SOURCE) >> $(DIST_DIR)/temp_build.sh
+	@printf '\n}\n' >> $(DIST_DIR)/temp_build.sh
+	@tail -n +2 $(MAIN_SOURCE) >> $(DIST_DIR)/temp_build.sh
 	@echo "Compiling..."
 	@shc -r -f $(DIST_DIR)/temp_build.sh -o $(DIST_DIR)/$(BINARY_NAME)
 	@echo "Signing..."

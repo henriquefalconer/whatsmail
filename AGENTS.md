@@ -4,10 +4,6 @@
 
 Filter by eventMessage, not subsystem.
 
-# Force a manual run immediately to verify
-
-`launchctl kickstart -k gui/$(id -u)/local.whatsmail`
-
 # Build & sign
 
 `make`

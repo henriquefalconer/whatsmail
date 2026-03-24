@@ -19,7 +19,12 @@ cleanup() {
 trap cleanup EXIT
 
 # Settings
-MSMTP_CONFIG="$SCRIPT_DIR/.msmtp.rc"
+MSMTP_CONFIG="${WHATSMAIL_MSMTP_CONFIG:-}"
+if [ -z "$MSMTP_CONFIG" ]; then
+    log "ERROR: WHATSMAIL_MSMTP_CONFIG not set"
+    echo "Error: set WHATSMAIL_MSMTP_CONFIG to the msmtp config file path." >&2
+    exit 1
+fi
 TO="${WHATSMAIL_TO:-}"
 
 if [ -z "$TO" ]; then
@@ -38,7 +43,7 @@ else
     DATA=$(bash "$SCRIPT_DIR/unread_messages.sh")
 fi
 if [ $? -ne 0 ]; then
-    log "ERROR: unread_messages.sh failed. Is WhatsApp open? Is Full Disk Access granted?"
+    log "ERROR: sqlite3 call failed. Is WhatsApp open? Is Full Disk Access granted?"
     exit 1
 fi
 

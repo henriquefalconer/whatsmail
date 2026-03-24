@@ -65,6 +65,8 @@ Create `~/Library/LaunchAgents/local.whatsmail.plist`:
     <dict>
         <key>WHATSMAIL_TO</key>
         <string>you@example.com</string>
+        <key>WHATSMAIL_MSMTP_CONFIG</key>
+        <string>/path/to/.msmtp.rc</string>
         <key>PATH</key>
         <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
     </dict>
@@ -84,13 +86,21 @@ Create `~/Library/LaunchAgents/local.whatsmail.plist`:
 ### 5. Load the Service
 
 ```bash
-launchctl load ~/Library/LaunchAgents/local.whatsmail.plist
+launchctl unload ~/Library/LaunchAgents/local.whatsmail.plist 2>/dev/null
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.whatsmail.plist
+```
+
+### 6. Verify It Works
+
+```bash
+launchctl start local.whatsmail
+/usr/bin/log show --predicate 'eventMessage contains "local.whatsmail"' --last 2m --style compact
 ```
 
 ## Manual Usage
 
 ```bash
-WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
+WHATSMAIL_TO=you@example.com WHATSMAIL_MSMTP_CONFIG=.msmtp.rc bash whatsmail_bridge.sh
 ```
 
 ## Logging
