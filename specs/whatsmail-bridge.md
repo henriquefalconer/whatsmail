@@ -54,11 +54,20 @@ A bordered rounded rectangle containing:
 
 ```bash
 #!/bin/bash
+set -u
+set -o pipefail
+
+log() { /usr/bin/logger -t WhatsMail "[local.whatsmail] $1"; }
+
+cleanup() {
+    EXIT_CODE=$?
+    if [ $EXIT_CODE -ne 0 ]; then
+        log "ERROR: Script exited unexpectedly with code $EXIT_CODE"
+    fi
+}
+trap cleanup EXIT
 
 # Settings
-DB="/path/to/Messages.db"
-PROFILE_DIR="/path/to/Media/Profile"
-SQL="SELECT ..."   # includes RawChatJID field for profile pic lookup
 TO="you@example.com"
 
 # Profile picture lookup: query ZWAPROFILEPICTUREITEM for ZPATH,
@@ -67,12 +76,21 @@ TO="you@example.com"
 get_avatar() { ... }
 
 # Process
-DATA=$(sqlite3 "$DB" "$SQL")
+log "Fetching unread messages..."
+DATA=$(bash unread_messages.sh)
+if [ $? -ne 0 ]; then
+    log "ERROR: unread_messages.sh failed. Is WhatsApp open? Is Full Disk Access granted?"
+    exit 1
+fi
 
 if [ -n "$DATA" ]; then
     BODY=$(format_html "$DATA")   # group by chat, build HTML with bubbles + profile pics
     MSG_COUNT=$(echo "$DATA" | wc -l)
-    printf "Subject: (%s) %s unread messages\nContent-Type: text/html; charset=UTF-8\nMIME-Version: 1.0\n\n%s" "$(date +%d/%m/%Y)" "$MSG_COUNT" "$BODY" | msmtp "$TO"
+    log "Attempting to send email to $TO..."
+    if ! printf "Subject: (%s) %s unread messages\nContent-Type: text/html; charset=UTF-8\nMIME-Version: 1.0\n\n%s" "$(date +%d/%m/%Y)" "$MSG_COUNT" "$BODY" | msmtp "$TO"; then
+        log "ERROR: msmtp failed. Check internet connection or .msmtp.rc"
+        exit 1
+    fi
 fi
 ```
 

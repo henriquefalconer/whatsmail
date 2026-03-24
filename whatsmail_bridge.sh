@@ -3,11 +3,20 @@
 # WhatsMail Bridge
 # Sends unread WhatsApp messages as an email alert.
 
-set -euo pipefail
+set -u
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 log() { /usr/bin/logger -t WhatsMail "[local.whatsmail] $1"; }
+
+cleanup() {
+    EXIT_CODE=$?
+    if [ $EXIT_CODE -ne 0 ]; then
+        log "ERROR: Script exited unexpectedly with code $EXIT_CODE"
+    fi
+}
+trap cleanup EXIT
 
 # Settings
 MSMTP_CONFIG="$SCRIPT_DIR/.msmtp.rc"
@@ -22,7 +31,12 @@ fi
 log "Starting bridge"
 
 # MsgID|Time|Chat|ChatJID|Sender|IsGroup|Content|ProfilePicPath|Status
+log "Fetching unread messages..."
 DATA=$(bash "$SCRIPT_DIR/unread_messages.sh")
+if [ $? -ne 0 ]; then
+    log "ERROR: unread_messages.sh failed. Is WhatsApp open? Is Full Disk Access granted?"
+    exit 1
+fi
 
 if [ -z "$DATA" ]; then
     log "No unread messages found"
@@ -208,6 +222,10 @@ else
     SUBJECT="Subject: (${DATE}) ${MSG_COUNT} unread messages"
 fi
 
-printf "%s\nContent-Type: text/html; charset=UTF-8\nMIME-Version: 1.0\n\n%s" "$SUBJECT" "$BODY" | msmtp --file="$MSMTP_CONFIG" "$TO"
+log "Attempting to send email to $TO..."
+if ! printf "%s\nContent-Type: text/html; charset=UTF-8\nMIME-Version: 1.0\n\n%s" "$SUBJECT" "$BODY" | msmtp --file="$MSMTP_CONFIG" "$TO"; then
+    log "ERROR: msmtp failed. Check internet connection or .msmtp.rc"
+    exit 1
+fi
 log "Sent $MSG_COUNT message(s) to $TO"
 echo "Alert sent to $TO."
