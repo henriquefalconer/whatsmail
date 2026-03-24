@@ -13,7 +13,7 @@ The email is sent as **HTML** with a chat-bubble interface. Messages are grouped
 Each chat section contains:
 
 1. **Chat name** — displayed above the messages, aligned with bubble text
-2. **Profile avatar** — grey circle (32px), top-aligned with the first message bubble
+2. **Profile avatar** — 32px circle, top-aligned with the first message bubble. Uses the contact's actual profile picture (base64-embedded from `ZWAPROFILEPICTUREITEM`) when available; falls back to a grey circle when no picture exists
 3. **Vertical line** — 2px line centered on the avatar, starts below the avatar (with a 5px gap), continues through all messages and the card
 4. **Message bubbles** — grey rounded rectangles with timestamp and content
 5. **"Open in WhatsApp" card** — bordered rectangle at the bottom of each chat section
@@ -48,6 +48,7 @@ A bordered rounded rectangle containing:
 - Multi-line message content: the query outputs `<NL>` as a newline placeholder; the bridge converts each `<NL>` to `<br>`
 - All text is black (`#000`), uniform 13px font size
 - Border color `#c8c8c8` is shared across the vertical line, bubble borders, card border, and pill button border
+- Profile pictures are looked up from `ZWAPROFILEPICTUREITEM` using the chat's raw `ZCONTACTJID`, resolved to a file in `Media/Profile/` (globbed for extension), and embedded as base64 data URIs. For `@s.whatsapp.net` chats where the DB returns no path (profile pics are stored under `@lid` JIDs), falls back to searching `Media/Profile/<phone_number>-*` on disk
 
 ## Script
 
@@ -56,14 +57,20 @@ A bordered rounded rectangle containing:
 
 # Settings
 DB="/path/to/Messages.db"
-SQL="SELECT ..."
+PROFILE_DIR="/path/to/Media/Profile"
+SQL="SELECT ..."   # includes RawChatJID field for profile pic lookup
 TO="you@example.com"
+
+# Profile picture lookup: query ZWAPROFILEPICTUREITEM for ZPATH,
+# find file on disk (glob for extension), base64-encode as data URI.
+# Falls back to grey circle when no picture exists.
+get_avatar() { ... }
 
 # Process
 DATA=$(sqlite3 "$DB" "$SQL")
 
 if [ -n "$DATA" ]; then
-    BODY=$(format_html "$DATA")   # group by chat, build HTML with bubbles
+    BODY=$(format_html "$DATA")   # group by chat, build HTML with bubbles + profile pics
     MSG_COUNT=$(echo "$DATA" | wc -l)
     printf "Subject: (%s) %s unread messages\nContent-Type: text/html; charset=UTF-8\nMIME-Version: 1.0\n\n%s" "$(date +%d/%m/%Y)" "$MSG_COUNT" "$BODY" | msmtp "$TO"
 fi

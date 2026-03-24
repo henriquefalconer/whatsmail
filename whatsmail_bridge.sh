@@ -16,7 +16,7 @@ if [ -z "$TO" ]; then
     exit 1
 fi
 
-# MsgID|Time|Chat|ChatJID|Sender|IsGroup|Content|Status
+# MsgID|Time|Chat|ChatJID|Sender|IsGroup|Content|ProfilePicPath|Status
 DATA=$(bash "$SCRIPT_DIR/unread_messages.sh")
 
 if [ -z "$DATA" ]; then
@@ -34,8 +34,34 @@ html_escape() {
     echo "$s"
 }
 
+# WhatsApp container base path
+WA_BASE=~/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared
+
 # Border color used for vertical bar, rectangles, and pill buttons
 BC='#c8c8c8'
+
+# Build an avatar HTML element from a profile picture path (from SQL output).
+# Falls back to searching by phone number in Media/Profile/ if no DB path.
+# Returns an <img> tag with embedded base64, or a grey circle <div> as fallback.
+# Args: $1=ProfilePicPath (from SQL), $2=ChatJID (phone number, may be empty)
+get_avatar() {
+    local pic_path="$1"
+    local chatjid="$2"
+    local file=""
+    if [ -n "$pic_path" ]; then
+        file=$(find "$WA_BASE/$pic_path"* -maxdepth 0 2>/dev/null | head -1)
+    fi
+    if [ -z "$file" ] && [ -n "$chatjid" ]; then
+        file=$(find "$WA_BASE/Media/Profile/$chatjid-"* -maxdepth 0 2>/dev/null | head -1)
+    fi
+    if [ -n "$file" ]; then
+        local b64
+        b64=$(base64 -i "$file")
+        echo '<img src="data:image/jpeg;base64,'"$b64"'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />'
+        return
+    fi
+    echo '<div style="width:32px;height:32px;border-radius:50%;background-color:#a0a0a0;"></div>'
+}
 
 # Convert "YYYY-MM-DD HH:MM" to epoch seconds
 to_epoch() {
@@ -83,7 +109,7 @@ CURRENT_ISGROUP=""
 CURRENT_CHATJID=""
 PREV_EPOCH=0
 
-while IFS='|' read -r _msgid time chat chatjid sender _isgroup content _status; do
+while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path _status; do
     time="${time%:*}"
     content="${content//<NL>/<br>}"
     chat_escaped=$(html_escape "$chat")
@@ -135,12 +161,13 @@ while IFS='|' read -r _msgid time chat chatjid sender _isgroup content _status; 
 
     if [ "$NEW_CHAT" = "1" ]; then
         # First message row: left column (avatar + gap + line) | right column (name + bubble)
+        local_avatar=$(get_avatar "$pic_path" "$chatjid")
         BODY+='<tr><td>'
         BODY+='<table width="100%" cellpadding="0" cellspacing="0"><tr>'
         # Left column: avatar on top, 5px gap, then vertical line fills rest
         BODY+='<td width="32" style="vertical-align:top;background:linear-gradient('"$BC"','"$BC"') no-repeat center/2px 100%;">'
         BODY+='<div style="height:24px;background-color:#eaeaea;"></div>'
-        BODY+='<div style="width:32px;height:32px;border-radius:50%;background-color:#a0a0a0;"></div>'
+        BODY+="$local_avatar"
         BODY+='<div style="height:5px;background-color:#eaeaea;"></div>'
         BODY+='</td>'
         # Right column: chat name then first bubble

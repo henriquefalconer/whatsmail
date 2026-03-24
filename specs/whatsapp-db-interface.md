@@ -70,6 +70,34 @@ Important fields:
 
 ---
 
+### ZWAPROFILEPICTUREITEM — Profile Pictures
+
+Stores profile picture metadata and file paths.
+
+- **Z_PK** — Row ID
+- **ZJID** — Contact identifier (may be prefixed with `a_` for device-linking entries)
+- **ZPATH** — Either a relative file path (`Media/Profile/<name>`) or base64-encoded protobuf data
+- **ZPICTUREID** — Picture version identifier
+- **ZREQUESTDATE** — Timestamp of last fetch
+
+**File storage notes:**
+- Files on disk have extensions (`.thumb`, `.jpg`) not included in `ZPATH`
+- Contact profile pictures use `@lid` JIDs with `Media/Profile/` paths
+- `a_`-prefixed JIDs store protobuf device-linking data, not images
+- `@s.whatsapp.net` JIDs in this table typically don't have usable image paths
+- `@newsletter` JIDs have `Media/Profile/` paths for channel icons
+
+**Profile picture locations on macOS:**
+
+| Location | Format | Naming | Coverage |
+|----------|--------|--------|----------|
+| `~/Library/Group Containers/group.net.whatsapp.WhatsApp.shared/Media/Profile/` | `.thumb`, `.jpg` | `<phone_or_lid>-<id>` | Subset of contacts; referenced by `ZPATH` in DB |
+| `~/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches/spotlight-profile-v2/` | `.png` | Opaque numeric hash (mapping to JID unknown) | Most contacts; used by Spotlight integration |
+
+The `spotlight-profile-v2` cache contains profile pictures for contacts that may not have entries in `Media/Profile/`, but the filename-to-JID mapping is not stored in the database and uses an unknown hashing scheme (not standard MD5/SHA1/SHA256 of the JID). Currently unusable for programmatic lookup.
+
+---
+
 ## Relationships (Implicit)
 
 
@@ -84,6 +112,9 @@ ZWAMESSAGE.ZFROMJID = ZWAPROFILEPUSHNAME.ZJID
 
 Group Sender → Member → Contact Name (via group member JID from group record)
 ZWAGROUPMEMBER.ZMEMBERJID = ZWAPROFILEPUSHNAME.ZJID
+
+Chat → Profile Picture (via chat JID)
+ZWACHATSESSION.ZCONTACTJID = ZWAPROFILEPICTUREITEM.ZJID
 
 
 ---
