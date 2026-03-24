@@ -1,13 +1,18 @@
 #!/bin/bash
 
-DB_PATH=/Users/henriquefalconer/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared/ChatStorage.sqlite
+DB_PATH=~/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared/ChatStorage.sqlite
 
 if [ ! -f "$DB_PATH" ]; then
-    /usr/bin/logger -t WhatsMail "[local.whatsmail] ERROR: WhatsApp database not found: $DB_PATH"
+    /usr/bin/logger -t WhatsMail "[local.whatsmail] ERROR: WhatsApp Chat database not found: $DB_PATH"
     exit 1
 fi
 
-CV_PATH=/Users/henriquefalconer/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared/ContactsV2.sqlite
+CV_PATH=~/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared/ContactsV2.sqlite
+
+if [ ! -f "$CV_PATH" ]; then
+    /usr/bin/logger -t WhatsMail "[local.whatsmail] ERROR: WhatsApp Contacts database not found: $CV_PATH"
+    exit 1
+fi
 
 QUERY_RESULT=$(/usr/bin/sqlite3 "$DB_PATH" "
 ATTACH DATABASE '$CV_PATH' AS cv;
