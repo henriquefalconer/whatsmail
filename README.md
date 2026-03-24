@@ -38,9 +38,10 @@ WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
 <dict>
     <key>Label</key>
     <string>local.whatsmail</string>
+    <key>ProcessType</key>
+    <string>Background</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
         <string>/path/to/whatsmail_bridge.sh</string>
     </array>
     <key>EnvironmentVariables</key>
