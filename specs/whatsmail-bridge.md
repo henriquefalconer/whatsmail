@@ -16,7 +16,7 @@ Each chat section contains, in order:
 4. **Message bubbles** — grey rounded rectangles
    - 1:1 chats: `[YYYY-MM-DD HH:MM]` + content
    - Group chats: `[YYYY-MM-DD HH:MM] Sender` + content
-   - Consecutive messages < 10 min apart: only the first shows the timestamp
+   - Consecutive messages < 10 min apart from the same sender: only the first shows the timestamp (in group chats, a sender change always shows the timestamp and sender name)
 5. **"Open in WhatsApp" card** — bordered rounded rectangle with bold chat name and link (or fallback text)
 
 ## Link Rules

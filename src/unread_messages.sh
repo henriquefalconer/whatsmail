@@ -7,7 +7,10 @@ if [ ! -f "$DB_PATH" ]; then
     exit 1
 fi
 
+CV_PATH=/Users/henriquefalconer/Library/Group\ Containers/group.net.whatsapp.WhatsApp.shared/ContactsV2.sqlite
+
 QUERY_RESULT=$(/usr/bin/sqlite3 "$DB_PATH" "
+ATTACH DATABASE '$CV_PATH' AS cv;
 SELECT
     sub.Z_PK AS MsgID,
     sub.Time,
@@ -17,10 +20,11 @@ SELECT
         CASE
             WHEN sub.ZISFROMME = 1 THEN 'You'
             ELSE COALESCE(
+                NULLIF(gm.ZCONTACTNAME, ''),
+                NULLIF(sc2.ZPARTNERNAME, ''),
+                NULLIF(sc.ZPARTNERNAME, ''),
                 NULLIF(pn.ZPUSHNAME, ''),
                 NULLIF(gpn.ZPUSHNAME, ''),
-                NULLIF(gm.ZCONTACTNAME, ''),
-                NULLIF(sc.ZPARTNERNAME, ''),
                 NULLIF(sub.Chat, 'Unknown Chat'),
                 REPLACE(REPLACE(REPLACE(COALESCE(gm.ZMEMBERJID, sub.ZFROMJID),'@s.whatsapp.net',''),'@g.us',''),'@lid',''),
                 'Unknown Sender'
@@ -73,9 +77,11 @@ LEFT JOIN ZWAPROFILEPUSHNAME pn ON sub.ZFROMJID = pn.ZJID
 LEFT JOIN ZWAGROUPMEMBER gm ON sub.ZGROUPMEMBER = gm.Z_PK
 LEFT JOIN ZWAPROFILEPUSHNAME gpn ON gm.ZMEMBERJID = gpn.ZJID
 LEFT JOIN ZWACHATSESSION sc ON COALESCE(gm.ZMEMBERJID, sub.ZFROMJID) = sc.ZCONTACTJID
+LEFT JOIN cv.ZWAADDRESSBOOKCONTACT abc ON gm.ZMEMBERJID = abc.ZLID
+LEFT JOIN ZWACHATSESSION sc2 ON abc.ZWHATSAPPID = sc2.ZCONTACTJID
 WHERE sub.rn <= sub.ZUNREADCOUNT
 GROUP BY sub.ZCHATSESSION, sub.ZSTANZAID
-ORDER BY MIN(sub.ZMESSAGEDATE) OVER (PARTITION BY sub.ZCHATSESSION) DESC, sub.ZMESSAGEDATE ASC;
+ORDER BY MAX(sub.ZMESSAGEDATE) OVER (PARTITION BY sub.ZCHATSESSION) DESC, sub.ZMESSAGEDATE ASC;
 " 2>&1)
 QUERY_EXIT_CODE=$?
 

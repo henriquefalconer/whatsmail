@@ -207,6 +207,7 @@ CURRENT_CHAT=""
 CURRENT_ISGROUP=""
 CURRENT_CHATJID=""
 PREV_EPOCH=0
+PREV_SENDER=""
 
 while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path raw_jid _status; do
     time="${time%:*}"
@@ -237,17 +238,23 @@ while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path 
         CURRENT_ISGROUP="$_isgroup"
         CURRENT_CHATJID="$chatjid"
         PREV_EPOCH=0
+        PREV_SENDER=""
     fi
 
-    # Decide whether to show timestamp (hide if <10 min from previous in same chat)
+    # Decide whether to show timestamp (hide if <10 min from previous in same chat and same sender in groups)
     show_time=1
     if [ "$PREV_EPOCH" -gt 0 ] && [ "$cur_epoch" -gt 0 ]; then
         diff=$(( cur_epoch - PREV_EPOCH ))
         if [ "$diff" -ge 0 ] && [ "$diff" -lt 600 ]; then
-            show_time=0
+            if [ "$_isgroup" = "1" ] && [ "$sender" != "$PREV_SENDER" ]; then
+                show_time=1
+            else
+                show_time=0
+            fi
         fi
     fi
     PREV_EPOCH=$cur_epoch
+    PREV_SENDER="$sender"
 
     # Build bubble content (sender name only for group chats)
     local_bubble=''

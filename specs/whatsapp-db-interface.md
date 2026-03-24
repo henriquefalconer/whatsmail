@@ -123,16 +123,22 @@ ZWAGROUPMEMBER.ZMEMBERJID = ZWAPROFILEPUSHNAME.ZJID
 Chat → Profile Picture (via chat JID)
 ZWACHATSESSION.ZCONTACTJID = ZWAPROFILEPICTUREITEM.ZJID
 
+Group Member LID → Phone JID → Private Chat (cross-database, via ContactsV2.sqlite)
+ZWAGROUPMEMBER.ZMEMBERJID = ContactsV2.ZWAADDRESSBOOKCONTACT.ZLID
+ContactsV2.ZWAADDRESSBOOKCONTACT.ZWHATSAPPID = ZWACHATSESSION.ZCONTACTJID
+
 
 ---
 
 ## Sender Name Priority
 
-1. Saved contact name (from `ZWAPROFILEPUSHNAME`)
-2. Group nickname
-3. Chat partner name (from sender's `ZWACHATSESSION.ZPARTNERNAME`)
-4. Phone number from JID
-5. "Unknown Sender"
+1. Group nickname (from `ZWAGROUPMEMBER.ZCONTACTNAME`)
+2. Private chat name via LID resolution (resolve `ZMEMBERJID` LID → phone JID via `ContactsV2.sqlite` `ZWAADDRESSBOOKCONTACT`, then `ZWACHATSESSION.ZPARTNERNAME`)
+3. Chat partner name via direct JID match (from sender's `ZWACHATSESSION.ZPARTNERNAME`)
+4. Push name via message JID (from `ZWAPROFILEPUSHNAME` via `ZFROMJID`)
+5. Push name via group member JID (from `ZWAPROFILEPUSHNAME` via `ZMEMBERJID`)
+6. Phone number from JID
+7. "Unknown Sender"
 
 > **Note:** `ZWAMESSAGE.ZPUSHNAME` is _not_ a display name in current DB versions — it stores base64-encoded protobuf metadata (timestamps, message hashes). It must not be used for sender resolution.
 
@@ -173,6 +179,7 @@ Some media and system messages use different transitions (e.g., media processing
 Standalone script: [`unread_messages.sh`](../src/unread_messages.sh)
 
 ```sql
+-- Requires: ATTACH DATABASE '<ContactsV2.sqlite path>' AS cv;
 SELECT
     sub.Z_PK AS MsgID,
     sub.Time,
@@ -182,10 +189,11 @@ SELECT
         CASE
             WHEN sub.ZISFROMME = 1 THEN 'You'
             ELSE COALESCE(
+                NULLIF(gm.ZCONTACTNAME, ''),
+                NULLIF(sc2.ZPARTNERNAME, ''),
+                NULLIF(sc.ZPARTNERNAME, ''),
                 NULLIF(pn.ZPUSHNAME, ''),
                 NULLIF(gpn.ZPUSHNAME, ''),
-                NULLIF(gm.ZCONTACTNAME, ''),
-                NULLIF(sc.ZPARTNERNAME, ''),
                 NULLIF(sub.Chat, 'Unknown Chat'),
                 REPLACE(REPLACE(REPLACE(COALESCE(gm.ZMEMBERJID, sub.ZFROMJID),'@s.whatsapp.net',''),'@g.us',''),'@lid',''),
                 'Unknown Sender'
@@ -224,6 +232,8 @@ LEFT JOIN ZWAPROFILEPUSHNAME pn ON sub.ZFROMJID = pn.ZJID
 LEFT JOIN ZWAGROUPMEMBER gm ON sub.ZGROUPMEMBER = gm.Z_PK
 LEFT JOIN ZWAPROFILEPUSHNAME gpn ON gm.ZMEMBERJID = gpn.ZJID
 LEFT JOIN ZWACHATSESSION sc ON COALESCE(gm.ZMEMBERJID, sub.ZFROMJID) = sc.ZCONTACTJID
+LEFT JOIN cv.ZWAADDRESSBOOKCONTACT abc ON gm.ZMEMBERJID = abc.ZLID
+LEFT JOIN ZWACHATSESSION sc2 ON abc.ZWHATSAPPID = sc2.ZCONTACTJID
 WHERE sub.rn <= sub.ZUNREADCOUNT
 GROUP BY sub.ZSTANZAID
 ORDER BY MIN(sub.ZMESSAGEDATE) OVER (PARTITION BY sub.ZCHATSESSION) DESC, sub.ZMESSAGEDATE ASC;

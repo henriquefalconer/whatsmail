@@ -68,8 +68,6 @@ Create `~/Library/LaunchAgents/local.whatsmail.plist`:
         <key>Minute</key>
         <integer>0</integer>
     </dict>
-    <key>RunAtLoad</key>
-    <true/>
 </dict>
 </plist>
 ```
