@@ -71,7 +71,7 @@ launchctl load ~/Library/LaunchAgents/local.whatsmail.plist
 View logs with Apple Unified Logging:
 
 ```bash
-/usr/bin/log show --predicate 'eventMessage contains "whatsmail"' --info --debug
+/usr/bin/log show --predicate 'eventMessage contains "local.whatsmail"' --info --debug
 ```
 
 ## Specifications

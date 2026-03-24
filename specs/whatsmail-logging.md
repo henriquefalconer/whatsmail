@@ -5,11 +5,11 @@
 ### 1. Send Logs
 
 ```bash
-/usr/bin/logger -t WhatsMail "Message here"
+/usr/bin/logger -t local.whatsmail "Message here"
 ```
 
 ### 2. View Logs
 
 ```bash
-/usr/bin/log [show|stream] --predicate 'eventMessage contains "whatsmail"' --info --debug
+/usr/bin/log [show|stream] --predicate 'eventMessage contains "local.whatsmail"' --info --debug
 ```
