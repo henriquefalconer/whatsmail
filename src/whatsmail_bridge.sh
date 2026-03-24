@@ -271,7 +271,7 @@ while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path 
         # Left column: avatar on top, 5px gap, then vertical line fills rest
         BODY+='<td width="32" style="vertical-align:top;background:linear-gradient('"$BC"','"$BC"') no-repeat center/2px 100%;">'
         BODY+='<div style="height:24px;background-color:#eaeaea;"></div>'
-        BODY+="$local_avatar"
+        BODY+='<div style="background-color:#eaeaea;">'"$local_avatar"'</div>'
         BODY+='<div style="height:5px;background-color:#eaeaea;"></div>'
         BODY+='</td>'
         # Right column: chat name then first bubble
