@@ -1,0 +1,10 @@
+account default
+host            smtp.example.com
+port            587
+tls             on
+auth            on
+user            sender@example.com
+password        YOUR_SMTP_KEY
+from            sender@example.com
+from_full_name  "WhatsApp Alert"
+set_from_header on
