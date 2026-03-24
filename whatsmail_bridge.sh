@@ -32,7 +32,11 @@ log "Starting bridge"
 
 # MsgID|Time|Chat|ChatJID|Sender|IsGroup|Content|ProfilePicPath|Status
 log "Fetching unread messages..."
-DATA=$(bash "$SCRIPT_DIR/unread_messages.sh")
+if type fetch_unread_logic &>/dev/null; then
+    DATA=$(fetch_unread_logic)
+else
+    DATA=$(bash "$SCRIPT_DIR/unread_messages.sh")
+fi
 if [ $? -ne 0 ]; then
     log "ERROR: unread_messages.sh failed. Is WhatsApp open? Is Full Disk Access granted?"
     exit 1
