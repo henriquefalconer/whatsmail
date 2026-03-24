@@ -83,18 +83,16 @@ Create `~/Library/LaunchAgents/local.whatsmail.plist`:
 </plist>
 ```
 
-### 5. Load the Service
+### 5. Install the LaunchAgent
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/local.whatsmail.plist 2>/dev/null
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.whatsmail.plist
+make install
 ```
 
 ### 6. Verify It Works
 
 ```bash
-launchctl start local.whatsmail
-/usr/bin/log show --predicate 'eventMessage contains "local.whatsmail"' --last 2m --style compact
+make run
 ```
 
 ## Manual Usage

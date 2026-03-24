@@ -5,7 +5,11 @@ DIST_DIR=dist
 MAIN_SOURCE=whatsmail_bridge.sh
 WORKER_SOURCE=unread_messages.sh
 
-.PHONY: all build clean
+PLIST_NAME=$(IDENTIFIER).plist
+PLIST_DIR=$(HOME)/Library/LaunchAgents
+PLIST_PATH=$(PLIST_DIR)/$(PLIST_NAME)
+
+.PHONY: all build install run clean
 
 # Default action when you just type 'make'
 all: build
@@ -23,6 +27,16 @@ build: clean
 	@codesign --force --identifier $(IDENTIFIER) -s - $(DIST_DIR)/$(BINARY_NAME) 2>/dev/null
 	@rm -f $(DIST_DIR)/temp_build.sh $(DIST_DIR)/temp_build.sh.x.c
 	@echo "Baked binary created in $(DIST_DIR)/$(BINARY_NAME)!"
+
+install:
+	@launchctl unload $(PLIST_PATH) 2>/dev/null; true
+	@launchctl bootstrap gui/$$(id -u) $(PLIST_PATH)
+	@echo "Service installed. Run 'make run' to trigger immediately."
+
+run:
+	@launchctl start $(IDENTIFIER)
+	@sleep 2
+	@/usr/bin/log show --predicate 'eventMessage contains "$(IDENTIFIER)"' --last 2m --style compact --info --debug
 
 clean:
 	@rm -rf $(DIST_DIR)
