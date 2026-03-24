@@ -99,9 +99,18 @@ fi
 ### Manual
 
 ```bash
-bash whatsmail_bridge.sh
+WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
+```
+
+### Build & Sign
+
+Compile with `shc` and sign with `codesign` so macOS can grant Full Disk Access to the binary:
+
+```bash
+shc -f whatsmail_bridge.sh -o whatsmail_bin
+codesign --force --identifier "local.whatsmail" -s - whatsmail_bin
 ```
 
 ### Scheduled Automation
 
-Use a macOS Launch Agent to run via `launchctl`.
+Use a macOS Launch Agent (`local.whatsmail.plist`) to run the compiled binary via `launchctl`. The plist provides `WHATSMAIL_TO` and `PATH` as environment variables, schedules daily execution at 9 AM, and runs at load.

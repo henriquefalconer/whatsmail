@@ -11,10 +11,16 @@ Forwards unread WhatsApp messages to your inbox as a daily email digest. Reads f
  <img align="center" src="https://github.com/user-attachments/assets/3a05f996-f47c-4ee6-803e-a032e0e45497" width="620">
 </p>
 
-## Setup
+## Requirements
 
 - macOS with WhatsApp Desktop installed
-- `msmtp` (`brew install msmtp`)
+- Xcode Command Line Tools (for `codesign`): `xcode-select --install`
+- `shc` (shell script compiler): `brew install shc`
+- `msmtp` (SMTP client): `brew install msmtp`
+
+## Setup
+
+### 1. Configure SMTP
 
 ```bash
 cp .msmtp.rc.example .msmtp.rc
@@ -22,32 +28,41 @@ chmod 600 .msmtp.rc
 # Edit .msmtp.rc with your SMTP server details
 ```
 
-## Usage
+### 2. Build & Sign the Binary
+
+Compile the script into a binary and sign it so macOS can remember its permissions:
 
 ```bash
-WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
+shc -f whatsmail_bridge.sh -o whatsmail_bin
+codesign --force --identifier "local.whatsmail" -s - whatsmail_bin
 ```
 
-### Scheduled Automation (9 AM)
+### 3. Grant Permissions
 
-1. Create `~/Library/LaunchAgents/local.whatsmail.plist`:
+1. Open **System Settings > Privacy & Security > Full Disk Access**
+2. Click **[+]** and select the `whatsmail_bin` file
+
+### 4. Configure the LaunchAgent
+
+Create `~/Library/LaunchAgents/local.whatsmail.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>local.whatsmail</string>
-    <key>ProcessType</key>
-    <string>Background</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/whatsmail_bridge.sh</string>
+        <string>/path/to/whatsmail_bin</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
         <key>WHATSMAIL_TO</key>
         <string>you@example.com</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
@@ -56,14 +71,22 @@ WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
         <key>Minute</key>
         <integer>0</integer>
     </dict>
+    <key>RunAtLoad</key>
+    <true/>
 </dict>
 </plist>
 ```
 
-2. Load the task:
+### 5. Load the Service
 
 ```bash
 launchctl load ~/Library/LaunchAgents/local.whatsmail.plist
+```
+
+## Manual Usage
+
+```bash
+WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
 ```
 
 ## Logging
