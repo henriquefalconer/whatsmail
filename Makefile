@@ -2,8 +2,8 @@
 BINARY_NAME=whatsmail_bin
 IDENTIFIER=local.whatsmail
 DIST_DIR=dist
-MAIN_SOURCE=whatsmail_bridge.sh
-WORKER_SOURCE=unread_messages.sh
+MAIN_SOURCE=src/whatsmail_bridge.sh
+WORKER_SOURCE=src/unread_messages.sh
 
 PLIST_NAME=$(IDENTIFIER).plist
 PLIST_DIR=$(HOME)/Library/LaunchAgents

@@ -163,7 +163,7 @@ Some media and system messages use different transitions (e.g., media processing
 
 ## SQL — Get Unread Incoming Messages
 
-Standalone script: [`unread_messages.sh`](../unread_messages.sh)
+Standalone script: [`unread_messages.sh`](../src/unread_messages.sh)
 
 ```sql
 SELECT
