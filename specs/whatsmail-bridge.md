@@ -84,10 +84,6 @@ fi
 bash whatsmail_bridge.sh
 ```
 
-### Daily Cron
+### Daily Automation
 
-Add to `crontab -e` to run at 9 AM:
-
-```
-0 9 * * * /bin/bash /path/to/whatsmail_bridge.sh
-```
+Use a macOS Launch Agent to run via `launchctl`.

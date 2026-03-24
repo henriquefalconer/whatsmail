@@ -28,10 +28,41 @@ chmod 600 .msmtp.rc
 WHATSMAIL_TO=you@example.com bash whatsmail_bridge.sh
 ```
 
-### Daily Cron (9 AM)
+### Daily Automation (9 AM)
 
+1. Create `~/Library/LaunchAgents/local.whatsmail.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.whatsmail</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/path/to/whatsmail_bridge.sh</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>WHATSMAIL_TO</key>
+        <string>you@example.com</string>
+    </dict>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+</dict>
+</plist>
 ```
-0 9 * * * WHATSMAIL_TO=you@example.com /bin/bash /path/to/whatsmail_bridge.sh
+
+2. Load the task:
+
+```bash
+launchctl load ~/Library/LaunchAgents/local.whatsmail.plist
 ```
 
 ## Specifications
