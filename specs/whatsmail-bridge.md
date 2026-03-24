@@ -45,7 +45,7 @@ A bordered rounded rectangle containing:
 ### Other Rules
 
 - Chats are ordered by their first unread message timestamp
-- Multi-line message content: the query outputs `<NL>` as a newline placeholder; the bridge converts each `<NL>` to `<br>`
+- Output placeholders: the query outputs `<NL>` for newlines and `<PIP>` for pipe characters; the bridge converts `<PIP>` back to `|` and `<NL>` to `<br>`
 - All text is black (`#000`), uniform 13px font size
 - Border color `#c8c8c8` is shared across the vertical line, bubble borders, card border, and pill button border
 - Profile pictures are looked up from `ZWAPROFILEPICTUREITEM` using the chat's raw `ZCONTACTJID`, resolved to a file in `Media/Profile/` (globbed for extension), and embedded as base64 data URIs. For `@s.whatsapp.net` chats where the DB returns no path (profile pics are stored under `@lid` JIDs), falls back to searching `Media/Profile/<phone_number>-*` on disk

@@ -171,18 +171,21 @@ SELECT
     sub.Time,
     sub.Chat,
     sub.ChatJID,
-    CASE
-        WHEN sub.ZISFROMME = 1 THEN 'You'
-        ELSE COALESCE(
-            NULLIF(pn.ZPUSHNAME, ''),
-            NULLIF(gpn.ZPUSHNAME, ''),
-            NULLIF(gm.ZCONTACTNAME, ''),
-            NULLIF(sc.ZPARTNERNAME, ''),
-            NULLIF(sub.Chat, 'Unknown Chat'),
-            REPLACE(REPLACE(REPLACE(COALESCE(gm.ZMEMBERJID, sub.ZFROMJID),'@s.whatsapp.net',''),'@g.us',''),'@lid',''),
-            'Unknown Sender'
-        )
-    END AS Sender,
+    REPLACE(REPLACE(
+        CASE
+            WHEN sub.ZISFROMME = 1 THEN 'You'
+            ELSE COALESCE(
+                NULLIF(pn.ZPUSHNAME, ''),
+                NULLIF(gpn.ZPUSHNAME, ''),
+                NULLIF(gm.ZCONTACTNAME, ''),
+                NULLIF(sc.ZPARTNERNAME, ''),
+                NULLIF(sub.Chat, 'Unknown Chat'),
+                REPLACE(REPLACE(REPLACE(COALESCE(gm.ZMEMBERJID, sub.ZFROMJID),'@s.whatsapp.net',''),'@g.us',''),'@lid',''),
+                'Unknown Sender'
+            )
+        END,
+        CHAR(10), '<NL>'), '|', '<PIP>'
+    ) AS Sender,
     sub.IsGroup,
     sub.Content,
     sub.ZMESSAGESTATUS AS Status
@@ -190,7 +193,7 @@ FROM (
     SELECT
         m.Z_PK,
         datetime(m.ZMESSAGEDATE + 978307200, 'unixepoch', 'localtime') AS Time,
-        COALESCE(c.ZPARTNERNAME, 'Unknown Chat') AS Chat,
+        REPLACE(REPLACE(COALESCE(c.ZPARTNERNAME, 'Unknown Chat'), CHAR(10), '<NL>'), '|', '<PIP>') AS Chat,
         REPLACE(REPLACE(REPLACE(c.ZCONTACTJID, '@s.whatsapp.net', ''), '@g.us', ''), '@lid', '') AS ChatJID,
         m.ZISFROMME,
         m.ZFROMJID,
@@ -200,7 +203,7 @@ FROM (
         m.ZMESSAGESTATUS,
         m.ZCHATSESSION,
         CASE WHEN c.ZSESSIONTYPE = 1 THEN 1 ELSE 0 END AS IsGroup,
-        REPLACE(COALESCE(m.ZTEXT, '[Media or non-text message]'), CHAR(10), '<NL>') AS Content,
+        REPLACE(REPLACE(COALESCE(m.ZTEXT, '[Media or non-text message]'), CHAR(10), '<NL>'), '|', '<PIP>') AS Content,
         ROW_NUMBER() OVER (PARTITION BY m.ZCHATSESSION ORDER BY m.ZMESSAGEDATE DESC) AS rn,
         c.ZUNREADCOUNT
     FROM ZWAMESSAGE m
@@ -235,9 +238,14 @@ Unread candidates are the most recent `ZUNREADCOUNT` incoming messages per chat:
 
 Note: `ZMESSAGESTATUS` alone is not reliable for unread detection — WhatsApp may leave old messages stuck at status 6 even after they have been read in the UI. The chat-level `ZUNREADCOUNT` badge is the source of truth for how many messages are unread; combined with descending timestamp order, it identifies which messages those are.
 
-### Multi-line Messages
+### Output Placeholders
 
-Message text may contain newlines, which would break the pipe-delimited row format of `sqlite3` output. The query replaces newlines with `<NL>` in the `Content` field so each result row stays on a single line. Downstream consumers must convert `<NL>` back to real newlines when displaying.
+The query uses pipe-delimited output (`sqlite3` default). Two characters in user content would break this format:
+
+- **Newlines** would split a single row across multiple lines. The query replaces `CHAR(10)` with `<NL>` in the `Chat`, `Sender`, and `Content` fields.
+- **Pipe characters** (`|`) would create spurious column boundaries. The query replaces `|` with `<PIP>` in the `Chat`, `Sender`, and `Content` fields.
+
+Downstream consumers must convert these placeholders back to real characters when displaying.
 
 ### Duplicate Messages
 

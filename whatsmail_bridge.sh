@@ -111,6 +111,11 @@ PREV_EPOCH=0
 
 while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path _status; do
     time="${time%:*}"
+    chat="${chat//<PIP>/|}"
+    chat="${chat//<NL>/ }"
+    sender="${sender//<PIP>/|}"
+    sender="${sender//<NL>/ }"
+    content="${content//<PIP>/|}"
     content="${content//<NL>/<br>}"
     chat_escaped=$(html_escape "$chat")
     sender_escaped=$(html_escape "$sender")

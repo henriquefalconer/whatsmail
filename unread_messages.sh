@@ -6,18 +6,21 @@ SELECT
     sub.Time,
     sub.Chat,
     sub.ChatJID,
-    CASE
-        WHEN sub.ZISFROMME = 1 THEN 'You'
-        ELSE COALESCE(
-            NULLIF(pn.ZPUSHNAME, ''),
-            NULLIF(gpn.ZPUSHNAME, ''),
-            NULLIF(gm.ZCONTACTNAME, ''),
-            NULLIF(sc.ZPARTNERNAME, ''),
-            NULLIF(sub.Chat, 'Unknown Chat'),
-            REPLACE(REPLACE(REPLACE(COALESCE(gm.ZMEMBERJID, sub.ZFROMJID),'@s.whatsapp.net',''),'@g.us',''),'@lid',''),
-            'Unknown Sender'
-        )
-    END AS Sender,
+    REPLACE(REPLACE(
+        CASE
+            WHEN sub.ZISFROMME = 1 THEN 'You'
+            ELSE COALESCE(
+                NULLIF(pn.ZPUSHNAME, ''),
+                NULLIF(gpn.ZPUSHNAME, ''),
+                NULLIF(gm.ZCONTACTNAME, ''),
+                NULLIF(sc.ZPARTNERNAME, ''),
+                NULLIF(sub.Chat, 'Unknown Chat'),
+                REPLACE(REPLACE(REPLACE(COALESCE(gm.ZMEMBERJID, sub.ZFROMJID),'@s.whatsapp.net',''),'@g.us',''),'@lid',''),
+                'Unknown Sender'
+            )
+        END,
+        CHAR(10), '<NL>'), '|', '<PIP>'
+    ) AS Sender,
     sub.IsGroup,
     sub.Content,
     COALESCE(pp.ZPATH, '') AS ProfilePicPath,
@@ -26,7 +29,7 @@ FROM (
     SELECT
         m.Z_PK,
         datetime(m.ZMESSAGEDATE + 978307200, 'unixepoch', 'localtime') AS Time,
-        COALESCE(c.ZPARTNERNAME, 'Unknown Chat') AS Chat,
+        REPLACE(REPLACE(COALESCE(c.ZPARTNERNAME, 'Unknown Chat'), CHAR(10), '<NL>'), '|', '<PIP>') AS Chat,
         CASE
             WHEN c.ZCONTACTJID LIKE '%@lid' AND c.ZPARTNERNAME LIKE '+%'
             THEN REPLACE(REPLACE(REPLACE(REPLACE(c.ZPARTNERNAME, '+', ''), ' ', ''), '-', ''), '(', '')
@@ -43,7 +46,7 @@ FROM (
         m.ZMESSAGESTATUS,
         m.ZCHATSESSION,
         CASE WHEN c.ZSESSIONTYPE = 1 THEN 1 ELSE 0 END AS IsGroup,
-        REPLACE(COALESCE(m.ZTEXT, '[Media or non-text message]'), CHAR(10), '<NL>') AS Content,
+        REPLACE(REPLACE(COALESCE(m.ZTEXT, '[Media or non-text message]'), CHAR(10), '<NL>'), '|', '<PIP>') AS Content,
         ROW_NUMBER() OVER (PARTITION BY m.ZCHATSESSION ORDER BY m.ZMESSAGEDATE DESC) AS rn,
         c.ZUNREADCOUNT
     FROM ZWAMESSAGE m
