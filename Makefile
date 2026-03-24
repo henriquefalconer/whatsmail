@@ -31,12 +31,9 @@ build: clean
 install:
 	@launchctl unload $(PLIST_PATH) 2>/dev/null; true
 	@launchctl bootstrap gui/$$(id -u) $(PLIST_PATH)
-	@echo "Service installed. Run 'make run' to trigger immediately."
 
 run:
-	@launchctl start $(IDENTIFIER)
-	@sleep 2
-	@/usr/bin/log show --predicate 'eventMessage contains "$(IDENTIFIER)"' --last 2m --style compact --info --debug
+	@(script -q /dev/null /usr/bin/log stream --predicate 'eventMessage contains "$(IDENTIFIER)"' --style compact --info --debug & sleep 1 && launchctl start $(IDENTIFIER)) | sed -l '/Bridge finished/q'
 
 clean:
 	@rm -rf $(DIST_DIR)

@@ -15,6 +15,7 @@ cleanup() {
     if [ $EXIT_CODE -ne 0 ]; then
         log "ERROR: Script exited unexpectedly with code $EXIT_CODE"
     fi
+    log "Bridge finished (exit $EXIT_CODE)"
 }
 trap cleanup EXIT
 
@@ -43,7 +44,7 @@ else
     DATA=$(bash "$SCRIPT_DIR/unread_messages.sh")
 fi
 if [ $? -ne 0 ]; then
-    log "ERROR: sqlite3 call failed. Is WhatsApp open? Is Full Disk Access granted?"
+    log "ERROR: sqlite3 call failed. Is WhatsApp open?"
     exit 1
 fi
 

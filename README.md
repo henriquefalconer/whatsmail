@@ -37,16 +37,7 @@ Compile the script into a binary and sign it so macOS can remember its permissio
 make
 ```
 
-### 3. Grant Full Disk Access
-
-1. Go to **System Settings > Privacy & Security > Full Disk Access**
-2. Remove any old `whatsmail_bin` or `whatsmail_bridge.sh` entry with **[−]**
-3. Click **[+]** and add `dist/whatsmail_bin`
-4. Ensure the toggle is **ON**
-
-> Repeat after each `make` — rebuilding changes the code signature.
-
-### 4. Configure the LaunchAgent
+### 3. Configure the LaunchAgent
 
 Create `~/Library/LaunchAgents/local.whatsmail.plist`:
 
@@ -83,13 +74,13 @@ Create `~/Library/LaunchAgents/local.whatsmail.plist`:
 </plist>
 ```
 
-### 5. Install the LaunchAgent
+### 4. Install the LaunchAgent
 
 ```bash
 make install
 ```
 
-### 6. Verify It Works
+### 5. Verify It Works
 
 ```bash
 make run
