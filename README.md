@@ -80,24 +80,10 @@ Create `~/Library/LaunchAgents/local.whatsmail.plist`:
 make install
 ```
 
-### 5. Verify It Works
+### 5. Verify LaunchAgent Works
 
 ```bash
 make run
-```
-
-## Manual Usage
-
-```bash
-WHATSMAIL_TO=you@example.com WHATSMAIL_MSMTP_CONFIG=.msmtp.rc bash whatsmail_bridge.sh
-```
-
-## Logging
-
-View logs with Apple Unified Logging:
-
-```bash
-/usr/bin/log show --predicate 'eventMessage contains "local.whatsmail"' --info --debug
 ```
 
 ## Specifications
