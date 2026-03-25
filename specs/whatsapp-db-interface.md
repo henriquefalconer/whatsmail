@@ -42,7 +42,7 @@ Important fields:
 - **Z_PK** — Chat ID
 - **ZPARTNERNAME** — Chat display name
 - **ZCONTACTJID** — Chat identifier
-- **ZSESSIONTYPE** — 1 = group chat
+- **ZSESSIONTYPE** — 0 = private chat, 1 = group chat, 3 = Status update
 - **ZUNREADCOUNT** — Number shown in unread badge
 - **ZLASTMESSAGEDATE** — Last message seen
 - **ZARCHIVED** — Archived flag
@@ -227,6 +227,7 @@ FROM (
         m.ZISFROMME = 0
         AND c.ZUNREADCOUNT > 0
         AND m.ZMESSAGETYPE != 10
+        AND c.ZSESSIONTYPE != 3
 ) sub
 LEFT JOIN ZWAPROFILEPUSHNAME pn ON sub.ZFROMJID = pn.ZJID
 LEFT JOIN ZWAGROUPMEMBER gm ON sub.ZGROUPMEMBER = gm.Z_PK
