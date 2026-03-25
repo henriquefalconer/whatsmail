@@ -12,6 +12,7 @@ log() { /usr/bin/logger -t WhatsMail "[local.whatsmail] $1"; }
 
 cleanup() {
     EXIT_CODE=$?
+    rm -rf /tmp/whatsmail_mime_$$.*
     if [ $EXIT_CODE -ne 0 ]; then
         log "ERROR: Script exited unexpectedly with code $EXIT_CODE"
     fi
@@ -79,17 +80,29 @@ SPOTLIGHT_CACHE=~/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches/s
 # Border color used for vertical bar, rectangles, and pill buttons
 BC='#c8c8c8'
 
-# Emit an <img> tag from a file path. Returns 0 on success, 1 on failure.
+# CID image attachment tracking (uses a manifest file to survive subshells)
+MIME_TMPDIR=$(mktemp -d /tmp/whatsmail_mime_$$.XXXXXX)
+MIME_MANIFEST="$MIME_TMPDIR/manifest.txt"
+
+# Register an image file as a MIME attachment and emit an <img> tag with a cid: reference.
+# Returns 0 on success, 1 on failure.
 _avatar_from_file() {
-    local b64
-    b64=$(base64 -i "$1" 2>/dev/null) || return 1
-    echo '<img src="data:image/jpeg;base64,'"$b64"'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />'
+    [ -s "$1" ] || return 1
+    local count=0
+    [ -f "$MIME_MANIFEST" ] && count=$(wc -l < "$MIME_MANIFEST" | tr -d ' ')
+    local cid="avatar${count}@whatsmail"
+    local ext="${1##*.}"
+    local dest="$MIME_TMPDIR/avatar${count}.${ext}"
+    cp "$1" "$dest" 2>/dev/null || return 1
+    printf '%s %s\n' "$cid" "$dest" >> "$MIME_MANIFEST"
+    echo '<img src="cid:'"$cid"'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />'
 }
 
-# Emit an <img> tag from a pp blob in LocalKeyValue.sqlite. Returns 0 on success, 1 on failure.
+# Extract a pp blob from LocalKeyValue.sqlite to a temp file and register it.
+# Returns 0 on success, 1 on failure.
 _avatar_from_pp() {
     local jid="$1"
-    local tmp="/tmp/whatsmail_pp_$$.jpg"
+    local tmp="$MIME_TMPDIR/pp_extract_$$.jpg"
     local written
     written=$(/usr/bin/sqlite3 "$KV_DB" "SELECT writefile('$tmp', ZVALUE) FROM ZWAKEYVALUEELEMENT WHERE ZKEY = '$jid' AND ZNAMESPACE = 'pp' LIMIT 1;" 2>/dev/null)
     if [ -n "$written" ] && [ "$written" -gt 0 ] 2>/dev/null && [ -f "$tmp" ]; then
@@ -309,7 +322,36 @@ else
 fi
 
 log "Attempting to send email to $TO..."
-if ! printf "%s\nContent-Type: text/html; charset=UTF-8\nMIME-Version: 1.0\n\n%s" "$SUBJECT" "$BODY" | msmtp --file="$MSMTP_CONFIG" "$TO"; then
+
+BOUNDARY="whatsmail-$(date +%s)-$$"
+
+{
+    printf "%s\n" "$SUBJECT"
+    printf "MIME-Version: 1.0\n"
+    printf "Content-Type: multipart/related; boundary=\"%s\"\n" "$BOUNDARY"
+    printf "\n--%s\n" "$BOUNDARY"
+    printf "Content-Type: text/html; charset=UTF-8\n"
+    printf "Content-Transfer-Encoding: 7bit\n\n"
+    printf "%s\n" "$BODY"
+
+    if [ -f "$MIME_MANIFEST" ]; then
+        while IFS=' ' read -r local_cid local_file; do
+            local_ext="${local_file##*.}"
+            local_mime="image/jpeg"
+            [[ "$local_ext" == "png" ]] && local_mime="image/png"
+            printf "\n--%s\n" "$BOUNDARY"
+            printf "Content-Type: %s\n" "$local_mime"
+            printf "Content-Transfer-Encoding: base64\n"
+            printf "Content-ID: <%s>\n" "$local_cid"
+            printf "Content-Disposition: inline\n\n"
+            base64 -b 76 -i "$local_file"
+        done < "$MIME_MANIFEST"
+    fi
+
+    printf "\n--%s--\n" "$BOUNDARY"
+} | msmtp --file="$MSMTP_CONFIG" "$TO"
+
+if [ $? -ne 0 ]; then
     log "ERROR: msmtp failed. Check internet connection or .msmtp.rc"
     exit 1
 fi

@@ -11,7 +11,7 @@ Bundles unread WhatsApp messages into one HTML email alert, grouped by chat.
 Each chat section contains, in order:
 
 1. **Chat name** — above messages, aligned with bubble text
-2. **Profile avatar** — 32px circle, top-aligned with first bubble; actual profile picture (base64-embedded) or grey circle fallback
+2. **Profile avatar** — 32px circle, top-aligned with first bubble; actual profile picture (CID-embedded MIME attachment) or grey circle fallback
 3. **Vertical line** — 2px, centered on avatar, 5px gap below it, continues through all messages and the card
 4. **Message bubbles** — grey rounded rectangles
    - 1:1 chats: `[YYYY-MM-DD HH:MM]` + content
@@ -29,7 +29,7 @@ Each chat section contains, in order:
 
 ## Profile Pictures
 
-Resolved via a layered lookup chain, embedded as base64 data URIs:
+Resolved via a layered lookup chain, attached as MIME parts and referenced via `cid:` URIs (`multipart/related`). This ensures compatibility with Gmail and other web clients that strip inline `data:` URIs.
 
 1. **L1** — `ZWAPROFILEPICTUREITEM` DB path → `Media/Profile/` file (globbed for extension). Best for `@lid` chats.
 2. **L2b** — `pp` blob by LID: resolve LID via `ContactsV2.sqlite` (`ZWAADDRESSBOOKCONTACT.ZLID` matched on `ZWHATSAPPID`), then fetch JPEG from `LocalKeyValue.sqlite` (`ZNAMESPACE = 'pp'`, `ZKEY` = LID). Best coverage for `@s.whatsapp.net` chats.
@@ -58,9 +58,10 @@ TO="$WHATSMAIL_TO"
 DATA=$(bash unread_messages.sh) || { log "ERROR: unread_messages.sh failed"; exit 1; }
 
 if [ -n "$DATA" ]; then
-    BODY=$(format_html "$DATA")   # group by chat, build HTML with bubbles + profile pics
+    BODY=$(format_html "$DATA")   # group by chat, build HTML with cid: avatar refs
     MSG_COUNT=$(echo "$DATA" | wc -l)
-    printf "Subject: ...\nContent-Type: text/html; charset=UTF-8\n\n%s" "$BODY" \
+    # Build multipart/related MIME: HTML body + CID image attachments
+    { mime_headers; mime_html "$BODY"; mime_images; mime_end; } \
         | msmtp "$TO" || { log "ERROR: msmtp failed"; exit 1; }
 fi
 ```
