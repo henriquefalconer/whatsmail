@@ -12,7 +12,6 @@ log() { /usr/bin/logger -t WhatsMail "[local.whatsmail] $1"; }
 
 cleanup() {
     EXIT_CODE=$?
-    rm -rf /tmp/whatsmail_mime_$$.*
     if [ $EXIT_CODE -ne 0 ]; then
         log "ERROR: Script exited unexpectedly with code $EXIT_CODE"
     fi
@@ -80,42 +79,44 @@ SPOTLIGHT_CACHE=~/Library/Containers/net.whatsapp.WhatsApp/Data/Library/Caches/s
 # Border color used for vertical bar, rectangles, and pill buttons
 BC='#c8c8c8'
 
-# CID image attachment tracking (uses a manifest file to survive subshells)
-MIME_TMPDIR=$(mktemp -d /tmp/whatsmail_mime_$$.XXXXXX)
-MIME_MANIFEST="$MIME_TMPDIR/manifest.txt"
+# CID image attachment tracking (stored in arrays, no temp files)
+CID_COUNT=0
+declare -a CID_B64S=()
+declare -a CID_MIMES=()
+AVATAR_RESULT=""
 
-# Register an image file as a MIME attachment and emit an <img> tag with a cid: reference.
+# Register an image file as a CID attachment. Sets AVATAR_RESULT to an <img> tag.
 # Returns 0 on success, 1 on failure.
 _avatar_from_file() {
     [ -s "$1" ] || return 1
-    local count=0
-    [ -f "$MIME_MANIFEST" ] && count=$(wc -l < "$MIME_MANIFEST" | tr -d ' ')
-    local cid="avatar${count}@whatsmail"
+    local b64
+    b64=$(base64 -b 76 -i "$1" 2>/dev/null) || return 1
+    [ -z "$b64" ] && return 1
     local ext="${1##*.}"
-    local dest="$MIME_TMPDIR/avatar${count}.${ext}"
-    cp "$1" "$dest" 2>/dev/null || return 1
-    printf '%s %s\n' "$cid" "$dest" >> "$MIME_MANIFEST"
-    echo '<img src="cid:'"$cid"'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />'
+    local mime="image/jpeg"
+    [[ "$ext" == "png" ]] && mime="image/png"
+    local cid="avatar${CID_COUNT}@whatsmail"
+    CID_B64S+=("$b64")
+    CID_MIMES+=("$mime")
+    CID_COUNT=$((CID_COUNT + 1))
+    AVATAR_RESULT='<img src="cid:'"$cid"'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />'
 }
 
-# Extract a pp blob from LocalKeyValue.sqlite to a temp file and register it.
+# Register a pp blob from LocalKeyValue.sqlite as a CID attachment. Sets AVATAR_RESULT.
 # Returns 0 on success, 1 on failure.
 _avatar_from_pp() {
     local jid="$1"
-    local tmp="$MIME_TMPDIR/pp_extract_$$.jpg"
-    local written
-    written=$(/usr/bin/sqlite3 "$KV_DB" "SELECT writefile('$tmp', ZVALUE) FROM ZWAKEYVALUEELEMENT WHERE ZKEY = '$jid' AND ZNAMESPACE = 'pp' LIMIT 1;" 2>/dev/null)
-    if [ -n "$written" ] && [ "$written" -gt 0 ] 2>/dev/null && [ -f "$tmp" ]; then
-        _avatar_from_file "$tmp"
-        local rc=$?
-        rm -f "$tmp"
-        return $rc
-    fi
-    rm -f "$tmp"
-    return 1
+    local b64
+    b64=$(/usr/bin/sqlite3 "$KV_DB" "SELECT hex(ZVALUE) FROM ZWAKEYVALUEELEMENT WHERE ZKEY = '$jid' AND ZNAMESPACE = 'pp' LIMIT 1;" 2>/dev/null | xxd -r -p | base64 -b 76)
+    [ -z "$b64" ] && return 1
+    local cid="avatar${CID_COUNT}@whatsmail"
+    CID_B64S+=("$b64")
+    CID_MIMES+=("image/jpeg")
+    CID_COUNT=$((CID_COUNT + 1))
+    AVATAR_RESULT='<img src="cid:'"$cid"'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />'
 }
 
-# Build an avatar HTML element using the lookup chain:
+# Build an avatar HTML element using the lookup chain. Sets AVATAR_RESULT.
 # L1: ZWAPROFILEPICTUREITEM Media/Profile/ file (from SQL pic_path)
 # L2b: pp blob by LID (looked up from ContactsV2)
 # L2a: pp blob by raw chat JID
@@ -127,6 +128,7 @@ get_avatar() {
     local chatjid="$2"
     local raw_jid="$3"
     local is_group="$4"
+    AVATAR_RESULT='<div style="width:32px;height:32px;border-radius:50%;background-color:#a0a0a0;"></div>'
 
     # L1: DB profile picture file
     if [ -n "$pic_path" ]; then
@@ -172,7 +174,6 @@ get_avatar() {
     if [ -f "$default_img" ]; then
         _avatar_from_file "$default_img" && return
     fi
-    echo '<div style="width:32px;height:32px;border-radius:50%;background-color:#a0a0a0;"></div>'
 }
 
 # Convert "YYYY-MM-DD HH:MM" to epoch seconds
@@ -285,7 +286,8 @@ while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path 
 
     if [ "$NEW_CHAT" = "1" ]; then
         # First message row: left column (avatar + gap + line) | right column (name + bubble)
-        local_avatar=$(get_avatar "$pic_path" "$chatjid" "$raw_jid" "$_isgroup")
+        get_avatar "$pic_path" "$chatjid" "$raw_jid" "$_isgroup"
+        local_avatar="$AVATAR_RESULT"
         BODY+='<tr><td>'
         BODY+='<table width="100%" cellpadding="0" cellspacing="0"><tr>'
         # Left column: avatar on top, 5px gap, then vertical line fills rest
@@ -334,19 +336,14 @@ BOUNDARY="whatsmail-$(date +%s)-$$"
     printf "Content-Transfer-Encoding: 7bit\n\n"
     printf "%s\n" "$BODY"
 
-    if [ -f "$MIME_MANIFEST" ]; then
-        while IFS=' ' read -r local_cid local_file; do
-            local_ext="${local_file##*.}"
-            local_mime="image/jpeg"
-            [[ "$local_ext" == "png" ]] && local_mime="image/png"
-            printf "\n--%s\n" "$BOUNDARY"
-            printf "Content-Type: %s\n" "$local_mime"
-            printf "Content-Transfer-Encoding: base64\n"
-            printf "Content-ID: <%s>\n" "$local_cid"
-            printf "Content-Disposition: inline\n\n"
-            base64 -b 76 -i "$local_file"
-        done < "$MIME_MANIFEST"
-    fi
+    for i in "${!CID_B64S[@]}"; do
+        printf "\n--%s\n" "$BOUNDARY"
+        printf "Content-Type: %s\n" "${CID_MIMES[$i]}"
+        printf "Content-Transfer-Encoding: base64\n"
+        printf "Content-ID: <avatar%s@whatsmail>\n" "$i"
+        printf "Content-Disposition: inline\n\n"
+        printf "%s\n" "${CID_B64S[$i]}"
+    done
 
     printf "\n--%s--\n" "$BOUNDARY"
 } | msmtp --file="$MSMTP_CONFIG" "$TO"
