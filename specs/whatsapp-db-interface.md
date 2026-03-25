@@ -43,7 +43,7 @@ Important fields:
 - **ZPARTNERNAME** — Chat display name
 - **ZCONTACTJID** — Chat identifier
 - **ZSESSIONTYPE** — 0 = private chat, 1 = group chat, 3 = Status update
-- **ZUNREADCOUNT** — Number shown in unread badge
+- **ZUNREADCOUNT** — Number shown in unread badge; -1 = manually marked as unread (no actual unread messages)
 - **ZLASTMESSAGEDATE** — Last message seen
 - **ZARCHIVED** — Archived flag
 - **ZHIDDEN** — Hidden flag
@@ -225,7 +225,7 @@ FROM (
     JOIN ZWACHATSESSION c ON m.ZCHATSESSION = c.Z_PK
     WHERE
         m.ZISFROMME = 0
-        AND c.ZUNREADCOUNT > 0
+        AND c.ZUNREADCOUNT != 0
         AND m.ZMESSAGETYPE != 10
         AND c.ZSESSIONTYPE != 3
 ) sub
@@ -235,7 +235,7 @@ LEFT JOIN ZWAPROFILEPUSHNAME gpn ON gm.ZMEMBERJID = gpn.ZJID
 LEFT JOIN ZWACHATSESSION sc ON COALESCE(gm.ZMEMBERJID, sub.ZFROMJID) = sc.ZCONTACTJID
 LEFT JOIN cv.ZWAADDRESSBOOKCONTACT abc ON gm.ZMEMBERJID = abc.ZLID
 LEFT JOIN ZWACHATSESSION sc2 ON abc.ZWHATSAPPID = sc2.ZCONTACTJID
-WHERE sub.rn <= sub.ZUNREADCOUNT
+WHERE sub.rn <= CASE WHEN sub.ZUNREADCOUNT = -1 THEN 1 ELSE sub.ZUNREADCOUNT END
 GROUP BY sub.ZSTANZAID
 ORDER BY MIN(sub.ZMESSAGEDATE) OVER (PARTITION BY sub.ZCHATSESSION) DESC, sub.ZMESSAGEDATE ASC;
 ```
@@ -251,10 +251,13 @@ Unread detection is approximated using three layers:
 Unread candidates are the most recent `ZUNREADCOUNT` incoming messages per chat:
 
     m.ZISFROMME = 0
-    AND c.ZUNREADCOUNT > 0
-    AND ROW_NUMBER() OVER (PARTITION BY chat ORDER BY timestamp DESC) <= ZUNREADCOUNT
+    AND c.ZUNREADCOUNT != 0
+    AND ROW_NUMBER() OVER (PARTITION BY chat ORDER BY timestamp DESC)
+        <= CASE WHEN ZUNREADCOUNT = -1 THEN 1 ELSE ZUNREADCOUNT END
 
 Note: `ZMESSAGESTATUS` alone is not reliable for unread detection — WhatsApp may leave old messages stuck at status 6 even after they have been read in the UI. The chat-level `ZUNREADCOUNT` badge is the source of truth for how many messages are unread; combined with descending timestamp order, it identifies which messages those are.
+
+A `ZUNREADCOUNT` of **-1** means the chat was manually "marked as unread" by the user — there are no genuinely unread messages (all have `ZMESSAGESTATUS = 8`). The query treats this as 1 unread message, surfacing the last incoming message from the chat.
 
 ### Output Placeholders
 
