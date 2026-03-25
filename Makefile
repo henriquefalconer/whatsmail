@@ -26,7 +26,10 @@ build: clean
 	@echo "Signing..."
 	@codesign --force --identifier $(IDENTIFIER) -s - $(DIST_DIR)/$(BINARY_NAME) 2>/dev/null
 	@rm -f $(DIST_DIR)/temp_build.sh $(DIST_DIR)/temp_build.sh.x.c
-	@echo "Baked binary created in $(DIST_DIR)/$(BINARY_NAME)!"
+	@mkdir -p $(HOME)/.local/bin
+	@cp $(DIST_DIR)/$(BINARY_NAME) $(HOME)/.local/bin/
+	@chmod 700 $(HOME)/.local/bin/$(BINARY_NAME)
+	@echo "Baked binary created in $(DIST_DIR)/$(BINARY_NAME) and installed to ~/.local/bin/$(BINARY_NAME)"
 
 install:
 	@launchctl unload $(PLIST_PATH) 2>/dev/null; true
