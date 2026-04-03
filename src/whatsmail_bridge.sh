@@ -60,6 +60,18 @@ if [ -z "$DATA" ]; then
     exit 0
 fi
 
+# Keep "You" messages only if they are the last message in their chat
+DATA=$(echo "$DATA" | awk -F'|' '
+{
+    chat = $3; sender = $5
+    lines[NR] = $0; chats[NR] = chat; senders[NR] = sender
+    last_msg[chat] = NR
+}
+END {
+    for (i = 1; i <= NR; i++)
+        if (senders[i] != "You" || i == last_msg[chats[i]]) print lines[i]
+}')
+
 # HTML helper: escape special characters
 html_escape() {
     local s="$1"
@@ -272,7 +284,7 @@ while IFS='|' read -r _msgid time chat chatjid sender _isgroup content pic_path 
 
     # Build bubble content (sender name only for group chats)
     local_bubble=''
-    local_bubble+='<div style="display:inline-block;background-color:#d9d9d9;border:1px solid '"$BC"';border-radius:12px;padding:6px 8px;max-width:85%;color:#000;line-height:1.4;'"$FONT"'">'
+    local_bubble+='<div style="display:inline-block;background-color:#d9d9d9;border:1px solid '"$BC"';border-radius:12px;padding:6px 8px;max-width:85%;color:#000;line-height:1.4;word-break:break-all;overflow-wrap:break-word;'"$FONT"'">'
     if [ "$show_time" = "1" ]; then
         if [ "$_isgroup" = "1" ]; then
             local_bubble+='['"$time"'] '"$sender_escaped"'<br>'"$content_escaped"

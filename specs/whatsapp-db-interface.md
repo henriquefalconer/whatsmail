@@ -219,13 +219,12 @@ FROM (
         m.ZCHATSESSION,
         CASE WHEN c.ZSESSIONTYPE = 1 THEN 1 ELSE 0 END AS IsGroup,
         REPLACE(REPLACE(COALESCE(m.ZTEXT, '[Media or non-text message]'), CHAR(10), '<NL>'), '|', '<PIP>') AS Content,
-        ROW_NUMBER() OVER (PARTITION BY m.ZCHATSESSION ORDER BY m.ZMESSAGEDATE DESC) AS rn,
+        SUM(CASE WHEN m.ZISFROMME = 0 THEN 1 ELSE 0 END) OVER (PARTITION BY m.ZCHATSESSION ORDER BY m.ZMESSAGEDATE DESC ROWS UNBOUNDED PRECEDING) AS rn,
         c.ZUNREADCOUNT
     FROM ZWAMESSAGE m
     JOIN ZWACHATSESSION c ON m.ZCHATSESSION = c.Z_PK
     WHERE
-        m.ZISFROMME = 0
-        AND c.ZUNREADCOUNT != 0
+        c.ZUNREADCOUNT != 0
         AND m.ZMESSAGETYPE != 10
         AND c.ZSESSIONTYPE != 3
 ) sub
@@ -248,11 +247,10 @@ Unread detection is approximated using three layers:
 2. **Chat-level badge counter** → `ZUNREADCOUNT`
 3. **Message position** relative to the chat's read boundary in the message timeline
 
-Unread candidates are the most recent `ZUNREADCOUNT` incoming messages per chat:
+Unread candidates include all messages (incoming and sent) within the unread window of each chat. The window is defined by the most recent `ZUNREADCOUNT` incoming messages — sent messages interspersed in that range are included for context but do not count toward the limit:
 
-    m.ZISFROMME = 0
-    AND c.ZUNREADCOUNT != 0
-    AND ROW_NUMBER() OVER (PARTITION BY chat ORDER BY timestamp DESC)
+    c.ZUNREADCOUNT != 0
+    AND SUM(CASE WHEN ZISFROMME = 0 THEN 1 ELSE 0 END) OVER (PARTITION BY chat ORDER BY timestamp DESC)
         <= CASE WHEN ZUNREADCOUNT = -1 THEN 1 ELSE ZUNREADCOUNT END
 
 Note: `ZMESSAGESTATUS` alone is not reliable for unread detection — WhatsApp may leave old messages stuck at status 6 even after they have been read in the UI. The chat-level `ZUNREADCOUNT` badge is the source of truth for how many messages are unread; combined with descending timestamp order, it identifies which messages those are.
